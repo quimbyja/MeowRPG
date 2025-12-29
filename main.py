@@ -22,6 +22,7 @@ class Game:
         while True:
             self.ui.draw()
             char = self.ui.stdscr.getch()
+            # Управление в окне создания персонажа
             if self.ui.state == "create_character":
                 if char == 27:  #Esc
                     self.ui.state("menu")
@@ -34,18 +35,29 @@ class Game:
                     self.ui.show_message(
                         f"Персонаж {char_data['name']} ({char_data['class']}) создан!", 2)
                     self.ui.set_state("game")
-
-
-
+            # Управление в меню
             if self.ui.state == "menu":
-                if char == ord("q") or char == ord("Q"):
-                    break
-                if char == ord("s") or char == ord("S"):
-                    self.ui.set_state("create_character")
-                    self.ui.show_message("Игра началась!", 1.5)
-                elif char == ord("z") or char == ord("Z"):
-                    msg = self.music_manager.toggle()
-                    self.ui.show_message(msg, 1)
+                if char == curses.KEY_UP:
+                    self.ui.current_menu_index = max(0, self.ui.current_menu_index - 1)
+                elif char == curses.KEY_DOWN:
+                    self.ui.current_menu_index = min(
+                        len(self.ui.MENU_ITEMS) - 1, self.ui.current_menu_index + 1
+                    )
+                elif char in [10, 13]: #ENTER
+                    selected = self.ui.MENU_ITEMS[self.ui.current_menu_index]
+                    if selected == "Новая игра":
+                        self.ui.set_state("create_character")
+                        self.ui.show_message("Игра началась!", 1.5)
+                    elif selected == "Звук Вкл/выкл":
+                        self.music_manager.toggle()
+                    elif selected == "Выйти из игры":
+                        if self.ui._show_confirmation_window("Выйти из игры?"):
+                            break
+                    else:
+                        self.ui.set_state("menu")
+
+
+            # Управление в режиме игра
             elif self.ui.state == "game":
                 if char == ord("q") or char == ord("Q"):
                     self.ui.state = "menu"

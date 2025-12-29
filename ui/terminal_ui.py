@@ -1,6 +1,6 @@
 import curses
 import time
-from character.character_create_module import CreateCharacter
+from characters.character_create_module import CreateCharacter
 
 class TerminalUI:
     # ASCII‑арт для главного меню
@@ -18,16 +18,19 @@ class TerminalUI:
 
     # Пункты меню
     MENU_ITEMS = [
-        "Press S to Start new game",
-        "Press Q to Quit game",
-        "Press Z to turn on/off music",
+        "Новая игра",
+        "Выйти из игры",
+        "Звук Вкл/выкл"
     ]
+
+    
 
     def __init__(self, stdscr, music_manager):
         self.stdscr = stdscr
         self.music_manager = music_manager
         self.width, self.height = self.stdscr.getmaxyx()
         self.state = "menu" #Текущее состояние - меню
+        self.current_menu_index = 0
         self.creator = CreateCharacter()
 
     def set_state(self, new_state):
@@ -36,6 +39,57 @@ class TerminalUI:
             self.state = new_state
         else:
             raise ValueError("State must be 'menu' or 'game'")
+        
+    def _show_confirmation_window(self,
+                                  question="Вы уверены?"):
+        """
+        Показать диалоговое окно с подтверждением.
+        Возвращает: True (если Y), False (если N)
+        """
+        
+        # Получаем размеры экрана
+        h, w = self.stdscr.getmaxyx()
+
+        # Размеры диалогового окна (можно настроить)
+        dialogue_height = 6
+        dialogue_width = 40
+
+        # Координаты центра экрана
+        start_y = (h - dialogue_height) // 2
+        start_x = (w - dialogue_width) // 2
+
+        # Создаём окно
+        dialogue = curses.newwin(dialogue_height,
+                                 dialogue_width,
+                                 start_y,
+                                 start_x,)
+        
+        dialogue.box()
+        
+        #Вопрос
+        title = question
+        dialogue.addstr(2, ((dialogue_width - len(question)) // 2), title)
+
+        # Подсказка с вариантами
+        promt = "[Y/N]"
+        dialogue.addstr(4, (dialogue_width - len(promt)) // 2, promt)
+
+        #Обновляем
+        dialogue.refresh()
+
+        # Настраиваем ввод
+        curses.cbreak()           # мгновенный отклик
+        self.stdscr.keypad(True)  # поддержка спецклавиш
+        curses.noecho()           # не отображать введённый символ
+        
+        while True:
+            key = dialogue.getch()  # ждём ввода в диалоговом окне
+            if key in (ord('y'), ord('Y')):
+                return True
+            elif key in (ord('n'), ord('N')):
+                return False
+            elif key == 27:  # ESC
+                return False
 
     def _draw_create_character(self):
         self.stdscr.clear()
@@ -63,9 +117,6 @@ class TerminalUI:
         self._safe_addstr(16, 6, "F2 — очистить имя", curses.A_DIM)
 
         self.stdscr.refresh()
-
-
-
 
     def _draw_menu(self):
         """Рисуем главное меню"""
@@ -99,9 +150,14 @@ class TerminalUI:
             y = menu_start_y + i
             x = (self.width - len(item)) // 2
             if y < self.height - 1:
-                self.stdscr.addstr(y, x, item)
+                if i == self.current_menu_index:
+                    self.stdscr.attron(curses.A_REVERSE)
+                    self.stdscr.addstr(y, x, item)
+                    self.stdscr.attroff(curses.A_REVERSE)
+                else:
+                    self.stdscr.addstr(y, x, item)
 
-        # Меню под арт
+        # Статус музыки
         status = (
             "Фоновая музыка: ВКЛЮЧЕНА"
             if self.music_manager.music_on
@@ -112,6 +168,8 @@ class TerminalUI:
         x_status = (self.width - len(status)) // 2
         if y_status > menu_start_y + len(self.MENU_ITEMS):
             self._safe_addstr(y_status, x_status, status, curses.A_BOLD)
+        
+        self.stdscr.refresh()
 
     def _safe_addstr(self, y, x, text, attr=None):
         """Безопасно вывести текст в координаты (y, x)"""
