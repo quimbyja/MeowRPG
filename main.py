@@ -1,7 +1,7 @@
 import curses
 import time
 import threading
-from ui import MusicManager, TerminalUI
+from ui import TerminalUI, MusicManager, CreateCharacter
 
 
 class Game:
@@ -22,11 +22,26 @@ class Game:
         while True:
             self.ui.draw()
             char = self.ui.stdscr.getch()
+            if self.ui.state == "create_character":
+                if char == 27:  #Esc
+                    self.ui.state("menu")
+                elif char == curses.KEY_RIGHT:
+                    self.ui.creator.set_class(+1)
+                elif char == curses.KEY_LEFT:
+                    self.ui.creator.set_class(-1)
+                elif char == 9:
+                    char_data = self.ui.creator.get_character_data()
+                    self.ui.show_message(
+                        f"Персонаж {char_data['name']} ({char_data['class']}) создан!", 2)
+                    self.ui.set_state("game")
+
+
+
             if self.ui.state == "menu":
                 if char == ord("q") or char == ord("Q"):
                     break
                 if char == ord("s") or char == ord("S"):
-                    self.ui.set_state("game")
+                    self.ui.set_state("create_character")
                     self.ui.show_message("Игра началась!", 1.5)
                 elif char == ord("z") or char == ord("Z"):
                     msg = self.music_manager.toggle()

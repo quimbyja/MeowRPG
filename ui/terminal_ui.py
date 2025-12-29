@@ -1,5 +1,6 @@
 import curses
 import time
+from character.character_create_module import CreateCharacter
 
 class TerminalUI:
     # ASCII‑арт для главного меню
@@ -27,14 +28,45 @@ class TerminalUI:
         self.music_manager = music_manager
         self.width, self.height = self.stdscr.getmaxyx()
         self.state = "menu" #Текущее состояние - меню
+        self.creator = CreateCharacter()
 
     def set_state(self, new_state):
         """Переключаем состояние UI: 'menu' или 'game'"""
-        if new_state in ["menu", "game"]:
+        if new_state in ["menu", "game", "create_character"]:
             self.state = new_state
         else:
             raise ValueError("State must be 'menu' or 'game'")
+
+    def _draw_create_character(self):
+        self.stdscr.clear()
+        """Отрисовка экрана создания персонажа"""
+        title = "СОЗДАНИЕ ПЕРСОНАЖА"
+        self._safe_addstr(2, (self.width - len(title)) // 2, title, curses.A_BOLD | curses.color_pair(1))
+
+        # Линия разделитель
+        self._safe_addstr(3, 1, "-" * (self.width - 2), curses.color_pair(2))
+        # Поле ввода имени
+        self._safe_addstr(5, 4, "Имя персонажа")
+        name_display = self.creator.char_name or "_empty_"
+        self._safe_addstr(6, 15, name_display)
+        # Выбор класса
+        self._safe_addstr(8, 4, "Класс")
+        for i, cls in enumerate(self.creator.classes):
+            attr = curses.A_REVERSE if cls == self.creator.char_class else curses.A_NORMAL
+            self._safe_addstr(8, 12 + i * 10, cls, attr)
         
+        # Инструкции
+        self._safe_addstr(12, 4, "Управление:")
+        self._safe_addstr(13, 6, "→/← — сменить класс", curses.A_DIM)
+        self._safe_addstr(14, 6, "TAB — подтвердить выбор", curses.A_DIM)
+        self._safe_addstr(15, 6, "ESC — вернуться в меню", curses.A_DIM)
+        self._safe_addstr(16, 6, "F2 — очистить имя", curses.A_DIM)
+
+        self.stdscr.refresh()
+
+
+
+
     def _draw_menu(self):
         """Рисуем главное меню"""
         # Очищаем экран
@@ -127,14 +159,17 @@ class TerminalUI:
             self._draw_menu()
         elif self.state == "game":
             self._draw_game()
+        elif self.state == "create_character":
+            self._draw_create_character()
         else:
             self.stdscr.clear()
-            self.stdscr._safe_addstr(0, 0, f"Неизвестное состояние UI: {self.state}")
+            self._safe_addstr(0, 0, f"Неизвестное состояние UI: {self.state}")
 
         self.stdscr.refresh()
 
     def show_message(self, msg, duration=1, attr=None):
         """Показываем временное сообщение по центру экрана"""
+        self.stdscr.clear()
         y = self.height // 2
         x = (self.width - len(msg)) // 2
         attr = attr or curses.A_BOLD
