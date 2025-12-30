@@ -1,35 +1,23 @@
 import curses
 import time
 from characters.character_create_module import CreateCharacter
+from ASCII_arts import (MENU_ITEMS,
+                        MENU_ART,
+                        CHARACTER_CREATION, 
+                        CHARACTER_ICON)
+
 
 class TerminalUI:
-    # ASCII‑арт для главного меню
-    MENU_ART = [
-        r"______  ___                     ",
-        r"___   |/  /_____________      __",
-        r"__  /|_/ /_  _ \  __ \_ | /| / /",
-        r"_  /  / / /  __/ /_/ /_ |/ |/ / ",
-        r"/_/  /_/  \___/\____/____/|__/  ",
-        r"                 ____ ____ ____ ",
-        r"                ||R |||P |||G ||",
-        r"                ||__|||__|||__||",
-        r"                |/__\|/__\|/__\|",
-    ]
-
-    # Пункты меню
-    MENU_ITEMS = [
-        "Новая игра",
-        "Выйти из игры",
-        "Звук Вкл/выкл"
-    ]
-
-    
+    menu_art = MENU_ART
+    menu_items = MENU_ITEMS
+    character_icon = CHARACTER_ICON
+    character_creation_art = CHARACTER_CREATION
 
     def __init__(self, stdscr, music_manager):
         self.stdscr = stdscr
         self.music_manager = music_manager
         self.width, self.height = self.stdscr.getmaxyx()
-        self.state = "menu" #Текущее состояние - меню
+        self.state = "menu"
         self.current_menu_index = 0
         self.creator = CreateCharacter()
 
@@ -39,7 +27,7 @@ class TerminalUI:
             self.state = new_state
         else:
             raise ValueError("State must be 'menu' or 'game'")
-        
+
     def _show_confirmation_window(self,
                                   question="Вы уверены?"):
         """
@@ -84,11 +72,9 @@ class TerminalUI:
         
         while True:
             key = dialogue.getch()  # ждём ввода в диалоговом окне
-            if key in (ord('y'), ord('Y')):
+            if key in (ord('y'), ord('Y'), ord("н"), ord("Н"), 10, 13):
                 return True
-            elif key in (ord('n'), ord('N')):
-                return False
-            elif key == 27:  # ESC
+            elif key in (ord('n'), ord('N'), ord("т"), ord("Т"), 27):
                 return False
 
     def _draw_create_character(self):
@@ -97,24 +83,28 @@ class TerminalUI:
         title = "СОЗДАНИЕ ПЕРСОНАЖА"
         self._safe_addstr(2, (self.width - len(title)) // 2, title, curses.A_BOLD | curses.color_pair(1))
 
-        # Линия разделитель
-        self._safe_addstr(3, 1, "-" * (self.width - 2), curses.color_pair(2))
         # Поле ввода имени
-        self._safe_addstr(5, 4, "Имя персонажа")
-        name_display = self.creator.char_name or "_empty_"
-        self._safe_addstr(6, 15, name_display)
+        self._safe_addstr(3, 4, "Имя персонажа:")
+        name_display = self.creator.char_name or "_"
+        self._safe_addstr(4, 15, name_display)
+        # Линия разделитель
+        self._safe_addstr(5, 1, "-" * (self.width - 2))
+        # Рисунок персонажа при создании
+        for i, line in enumerate(self.character_creation_art):
+            y = 6 + i
+            x = self.width - 2 - len(line)
+            if y < self.height - 1:
+                self.stdscr.addstr(y, x, line)
         # Выбор класса
-        self._safe_addstr(8, 4, "Класс")
+        self._safe_addstr(8, 4, "Класс:")
         for i, cls in enumerate(self.creator.classes):
-            attr = curses.A_REVERSE if cls == self.creator.char_class else curses.A_NORMAL
-            self._safe_addstr(8, 12 + i * 10, cls, attr)
-        
-        # Инструкции
-        self._safe_addstr(12, 4, "Управление:")
-        self._safe_addstr(13, 6, "→/← — сменить класс", curses.A_DIM)
-        self._safe_addstr(14, 6, "TAB — подтвердить выбор", curses.A_DIM)
-        self._safe_addstr(15, 6, "ESC — вернуться в меню", curses.A_DIM)
-        self._safe_addstr(16, 6, "F2 — очистить имя", curses.A_DIM)
+            y = 10 + i
+            if y < self.height - 1:
+                if i == self.creator.selected_class_idx:
+                    attr = curses.A_REVERSE
+                else:
+                    curses.A_NORMAL
+                self.stdscr.addstr(y, 8, cls, attr)
 
         self.stdscr.refresh()
 
@@ -127,26 +117,25 @@ class TerminalUI:
             self.stdscr.addstr(0, 0, "Терминал слишком мал!")
             self.stdscr.refresh()
             return
-        
-        #Рамка
+
         self.stdscr.border()
 
         # ASCII art of menu
         start_y = 1
-        max_art_width = max(len(line) for line in self.MENU_ART)
+        max_art_width = max(len(line) for line in self.menu_art)
         x_offset = (self.width - 2 - max_art_width) // 2 + 1
 
-        for i, line in enumerate(self.MENU_ART):
+        for i, line in enumerate(self.menu_art):
             y = start_y + i
             if y < self.height - 1:
                 try:
                     self.stdscr.addstr(y, x_offset, line)
                 except curses.error:
                     pass
-        
+
         # Меню под арт
-        menu_start_y = start_y + len(self.MENU_ART) + 2
-        for i, item in enumerate(self.MENU_ITEMS):
+        menu_start_y = start_y + len(self.menu_art) + 2
+        for i, item in enumerate(self.menu_items):
             y = menu_start_y + i
             x = (self.width - len(item)) // 2
             if y < self.height - 1:
@@ -163,12 +152,12 @@ class TerminalUI:
             if self.music_manager.music_on
             else "Фоновая музыка: ВЫКЛЮЧЕНА"
         )
-        
+
         y_status = self.height - 1
         x_status = (self.width - len(status)) // 2
-        if y_status > menu_start_y + len(self.MENU_ITEMS):
+        if y_status > menu_start_y + len(self.menu_items):
             self._safe_addstr(y_status, x_status, status, curses.A_BOLD)
-        
+
         self.stdscr.refresh()
 
     def _safe_addstr(self, y, x, text, attr=None):
@@ -194,19 +183,19 @@ class TerminalUI:
                 return True
         except curses.error:
             return False  # ошибка вывода — молча игнорируем
-    
+
     def _draw_game(self):
         """Рисуем игровой экран (пример)"""
         self.stdscr.clear()
         self.stdscr.border()
-        
+
         title = "RPG game"
         x = (self.width - len(title)) // 2
         self.stdscr.addstr(3, x, title)
         """
         Логику игры придумаем потом
         """
-    
+
     def draw(self):
         self.height, self.width = self.stdscr.getmaxyx()
         """

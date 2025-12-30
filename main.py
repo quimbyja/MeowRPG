@@ -2,6 +2,7 @@ import curses
 import time
 import threading
 from ui import TerminalUI, MusicManager, CreateCharacter
+from ASCII_arts import MENU_ITEMS as MENU_ITEMS
 
 
 class Game:
@@ -25,26 +26,32 @@ class Game:
             # Управление в окне создания персонажа
             if self.ui.state == "create_character":
                 if char == 27:  #Esc
-                    self.ui.state("menu")
-                elif char == curses.KEY_RIGHT:
-                    self.ui.creator.set_class(+1)
-                elif char == curses.KEY_LEFT:
+                    self.ui.set_state("menu")
+                elif char == curses.KEY_UP:
                     self.ui.creator.set_class(-1)
-                elif char == 9:
+                elif char == curses.KEY_DOWN:
+                    self.ui.creator.set_class(+1)
+                elif char == 10:
                     char_data = self.ui.creator.get_character_data()
                     self.ui.show_message(
                         f"Персонаж {char_data['name']} ({char_data['class']}) создан!", 2)
                     self.ui.set_state("game")
+                elif char == curses.KEY_BACKSPACE or char == 127:  # Backspace
+                    if self.ui.creator.char_name:
+                        self.ui.creator.char_name = self.ui.creator.char_name[:-1]
+                elif 32 <= char <= 126:  # Печатные символы (ASCII)
+                    self.ui.creator.char_name += chr(char)
+                self.ui.draw()
             # Управление в меню
             if self.ui.state == "menu":
                 if char == curses.KEY_UP:
                     self.ui.current_menu_index = max(0, self.ui.current_menu_index - 1)
                 elif char == curses.KEY_DOWN:
                     self.ui.current_menu_index = min(
-                        len(self.ui.MENU_ITEMS) - 1, self.ui.current_menu_index + 1
+                        len(self.ui.menu_items) - 1, self.ui.current_menu_index + 1
                     )
                 elif char in [10, 13]: #ENTER
-                    selected = self.ui.MENU_ITEMS[self.ui.current_menu_index]
+                    selected = self.ui.menu_items[self.ui.current_menu_index]
                     if selected == "Новая игра":
                         self.ui.set_state("create_character")
                         self.ui.show_message("Игра началась!", 1.5)
@@ -59,8 +66,9 @@ class Game:
 
             # Управление в режиме игра
             elif self.ui.state == "game":
-                if char == ord("q") or char == ord("Q"):
-                    self.ui.state = "menu"
+                if char in [ord("q"), ord("Q"), ord("й"), ord("Й")]:
+                    if self.ui._show_confirmation_window("Выйти в главное меню?"):
+                        self.ui.state = "menu"
                 if char == ord("w") or char == ord("W"):
                     self.ui.show_message("Вы идете вперед", 3)
 

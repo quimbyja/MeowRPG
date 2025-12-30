@@ -2,22 +2,23 @@ class CreateCharacter:
     count = 0
     def __init__(self):
         self.char_name = ""
-        self.char_class = "Воин"
+        self.selected_class_idx = 0
         self.classes = ["Воин", "Маг", "Лучник", "Разбойник"]
+        self.char_class = self.classes[self.selected_class_idx]
+        
 
     def set_name(self, name: str):
         """Установить имя персонажа (с ограничением длины)"""
         max_length = 20
         self.char_name = name.strip()[:max_length]
 
-    def set_class(self, direction: int):
-        """
-        Сменить класс на следующий/предыдущий
-        direction: +1 — вправо, -1 — влево
-        """
-        idx = self.classes.index(self.char_class)
-        new_idx = (idx + direction) % len(self.classes)
-        self.char_class = self.classes[new_idx]
+    def set_class(self, delta: int):
+        """Изменить выбранный класс на delta (-1 или +1)"""
+        self.selected_class_idx += delta
+        # Ограничиваем индекс границами списка
+        self.selected_class_idx = max(0, min(len(self.classes) - 1, self.selected_class_idx))
+        # Обновляем текущий класс
+        self.char_class = self.classes[self.selected_class_idx]
     
     def get_character_data(self) -> dict:
         """Вернуть данные персонажа для использования в игре"""
