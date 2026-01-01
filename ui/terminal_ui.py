@@ -215,7 +215,7 @@ class TerminalUI:
         self.stdscr.border()
 
         # ASCII art of menu
-        start_y = 1
+        start_y = 5
         max_art_width = max(len(line) for line in self.menu_art)
         x_offset = (self.width - 2 - max_art_width) // 2 + 1
 

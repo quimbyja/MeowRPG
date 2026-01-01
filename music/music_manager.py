@@ -9,7 +9,8 @@ class MusicManager:
         self.music_on = True
         self.tracks = {
             "menu": "music/dark_fantasy_1.mp3",
-            "game": "music/leave_me_here.mp3"
+            "game": "music/leave_me_here.mp3",
+            "launch": "music/launch.wav",
         }
         self.current_track = None  # Текущий воспроизводимый трек
 

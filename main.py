@@ -15,8 +15,10 @@ class Game:
 
         self.ui.set_state("launch")
         self.ui.draw()
+        self.music_manager.play_track("launch")
+        self.music_manager.stop
         stdscr.refresh()
-        time.sleep(4)
+        time.sleep(3)
 
         # Запускаем музыку меню при старте
         if self.music_manager.is_track_available("menu"):
