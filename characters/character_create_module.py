@@ -1,11 +1,11 @@
 class CreateCharacter:
     count = 0
+
     def __init__(self):
         self.char_name = ""
         self.selected_class_idx = 0
         self.classes = ["Воин", "Маг", "Лучник", "Разбойник"]
         self.char_class = self.classes[self.selected_class_idx]
-        
 
     def set_name(self, name: str):
         """Установить имя персонажа (с ограничением длины)"""
@@ -19,7 +19,7 @@ class CreateCharacter:
         self.selected_class_idx = max(0, min(len(self.classes) - 1, self.selected_class_idx))
         # Обновляем текущий класс
         self.char_class = self.classes[self.selected_class_idx]
-    
+
     def get_character_data(self) -> dict:
         """Вернуть данные персонажа для использования в игре"""
         return {
