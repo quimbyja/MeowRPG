@@ -177,6 +177,29 @@ class TerminalUI:
             y = 17 + i
             if y < self.height - 1:
                 self._safe_addstr(y, 1, line)
+        
+        # Блок статистики справа
+        stats = self.creator._calculate_status()
+        if stats:
+            stats_y = 7  # Начало вывода статистики
+            stats_x = 30  # Правая половина экрана
+
+            # Заголовок
+            self._safe_addstr(stats_y, stats_x, "ХАРАКТЕРИСТИКИ:", curses.A_BOLD)
+
+            # Порядок вывода: здоровье → мана → остальные
+            stat_order = ["здоровье", "мана", "сила", "интеллект", "выносливость", "ловкость"]
+
+            for i, stat_name in enumerate(stat_order):
+                if stat_name in stats:
+                    y = stats_y + 2 + i  # Смещение по вертикали
+                    if y < self.height - 1:  # Проверка границ экрана
+                        display_name = stat_name.capitalize()
+                        value = stats[stat_name]
+                        # Форматирование: название слева, значение справа
+                        line = f"{display_name:<12}: {value:>4}"
+                        self._safe_addstr(y, stats_x, line)
+
         self.stdscr.refresh()
 
     def _draw_menu(self):
