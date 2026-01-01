@@ -64,4 +64,9 @@ class CreateCharacter:
                 "ловкость": 14
             }
         }
-        return base_stats.get(self.char_class, {})
+        # Добавляем уровень и опыт к базовым характеристикам
+        stats = base_stats.get(self.char_class, {})
+        stats["уровень"] = 1
+        stats["опыт"] = 0  # текущий опыт
+        stats["опыт_до_следующего_уровня"] = 100  # порог для повышения
+        return stats

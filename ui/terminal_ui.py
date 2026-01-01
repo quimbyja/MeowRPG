@@ -10,7 +10,8 @@ from ASCII_arts import (MENU_ITEMS,
                         GAME_MENU_ITEMS,
                         CHARACTER_CREATION,
                         CHARACTER_ICON,
-                        LAUNCH_ART)
+                        LAUNCH_ART,
+                        INVENTORY)
 
 
 class TerminalUI:
@@ -22,23 +23,33 @@ class TerminalUI:
     }
     menu_art = MENU_ART
     menu_items = MENU_ITEMS
-    character_icon = CHARACTER_ICON
     character_creation_art = CHARACTER_CREATION
     game_version = "v 1.0.0"
 
-    def __init__(self, stdscr, music_manager):
+    def __init__(self, stdscr, music_manager, game):
         self.stdscr = stdscr
         self.music_manager = music_manager
+        self.game = game
         self.width, self.height = self.stdscr.getmaxyx()
         self.state = "menu"
         self.current_menu_index = 0
         self.creator = CreateCharacter()
         self.sound_enabled = True
 
+        # Инициализация цветов
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_RED, -1)      # Красный (HP)
+        curses.init_pair(2, curses.COLOR_YELLOW, -1)   # Жёлтый (уровень)
+        curses.init_pair(4, curses.COLOR_BLUE, -1)     # Синий (MP)
+
     def set_state(self, new_state):
         """Переключаем состояние UI:
         'menu' или 'game' или 'create_character' или 'launch' """
-        if new_state in ["menu", "game", "create_character", "launch"]:
+        if new_state in ["menu",
+                         "game",
+                         "create_character",
+                         "launch",]:
             self.state = new_state
         else:
             raise ValueError("Smth went wrong")
@@ -256,13 +267,23 @@ class TerminalUI:
 
         self.stdscr.refresh()
 
+    def _update_menu(self):
+        """Обновляет пункты меню в зависимости от наличия сохранения"""
+        # Получаем доступ к БД через Game (если UI связан с Game)
+        if hasattr(self, 'game') and self.game.db.has_save():
+            self.menu_items = ["Продолжить", "Новая игра", "Звук Вкл/выкл", "Выйти из игры"]
+        else:
+            self.menu_items = MENU_ITEMS
+
+        # Сброс индекса выбора при изменении меню
+        self.current_menu_index = 0
+
     def _draw_game_menu_window(self):
-        h, w = self.stdscr.getmaxyx()
         menu_height = 15
         menu_width = 20
 
-        start_y = (h - menu_height) // 2
-        start_x = (w - menu_width) // 2
+        start_y = (self.height - menu_height) // 2
+        start_x = (self.width - menu_width) // 2
         game_menu = curses.newwin(menu_height,
                                   menu_width,
                                   start_y,
@@ -278,7 +299,10 @@ class TerminalUI:
             title_width = len(title) + 4
             title_y = 1
             title_x = (menu_width - title_width) // 2
-            title_win = game_menu.derwin(title_height, title_width, title_y, title_x)
+            title_win = game_menu.derwin(title_height,
+                                         title_width,
+                                         title_y,
+                                         title_x)
             title_win.box()
             title_win.addstr(1, 2, title, curses.A_BOLD)
 
@@ -348,16 +372,141 @@ class TerminalUI:
             return False  # ошибка вывода — молча игнорируем
 
     def _draw_game(self):
-        """Рисуем игровой экран (пример)"""
+        """
+        Рисуем игровой экран: иконка слева внизу,
+        HP/MP справа от неё
+        """
         self.stdscr.clear()
         self.stdscr.border()
 
-        title = "RPG game"
-        x = (self.width - len(title)) // 2
-        self.stdscr.addstr(3, x, title)
-        """
-        Логику игры придумаем потом
-        """
+        # Если персонажа нет — показываем заглушку
+        if not self.game.current_character:
+            self._safe_addstr(5, 2, "Нет загруженного персонажа", curses.A_DIM)
+            return
+
+        # Получаем данные персонажа
+        stats = self.game.current_character["stats"]
+        hp = stats.get("здоровье", 0)
+        max_hp = stats.get("здоровье", 100)  # Базовое макс. значение
+        mp = stats.get("мана", 0)
+        max_mp = stats.get("мана", 100)   # Базовое макс. значение
+
+        # 1. Отрисовка иконки персонажа (левый нижний угол)
+        icon_height = len(CHARACTER_ICON)
+        icon_width = max(len(line) for line in CHARACTER_ICON)
+        # Координаты иконки: почти внизу, у левого края
+        icon_y = self.height - icon_height - 1  # отступ от нижнего края
+        icon_x = 2  # небольшой отступ от левого края
+        # Проверяем, помещается ли иконка
+        if (icon_y >= 0 and icon_x >= 0
+                and icon_y + icon_height < self.height
+                and icon_x + icon_width < self.width):
+            for i, line in enumerate(CHARACTER_ICON):
+                self._safe_addstr(icon_y + i, icon_x, line, curses.A_BOLD)
+        else:
+            # Если иконка не помещается — рисуем мини‑заглушку
+            self._safe_addstr(self.height - 2, 2, "??", curses.A_DIM)
+
+        # Координаты для индикаторов (снизу, с отступами)
+        bar_y = self.height - 5  # 4 строки от нижнего края
+        bar_x = icon_x + icon_width + 2  # отступ слева
+        bar_length = 30       # фиксированная длина полосы
+
+        # Надписи слева от полос
+        self._safe_addstr(bar_y - 1, bar_x, "Здоровье:", curses.A_BOLD)
+        self._safe_addstr(bar_y + 1, bar_x, "Мана:   ", curses.A_BOLD)
+
+        # Рисуем рамку вокруг полос
+        self._safe_addstr(bar_y, bar_x - 1, "[" + " " * bar_length + "]", curses.A_DIM)
+        self._safe_addstr(bar_y + 2, bar_x - 1, "[" + " " * bar_length + "]", curses.A_DIM)
+
+        # Заполняем полосы пропорционально значению
+        # Здоровье (красный)
+        hp_fill = int((hp / max_hp) * bar_length) if max_hp > 0 else 0
+        hp_bar = "/" * hp_fill
+        self._safe_addstr(bar_y, bar_x, hp_bar, curses.color_pair(1) | curses.A_BOLD)
+
+        # Мана (синий)
+        mp_fill = int((mp / max_mp) * bar_length) if max_mp > 0 else 0
+        mp_bar = "/" * mp_fill
+        self._safe_addstr(bar_y + 2, bar_x, mp_bar, curses.color_pair(4) | curses.A_BOLD)
+
+        # Значения справа от полос
+        hp_text = f"{hp}/{max_hp}"
+        mp_text = f"{mp}/{max_mp}"
+        self._safe_addstr(bar_y, bar_x + bar_length + 2, hp_text, curses.A_BOLD)
+        self._safe_addstr(bar_y + 2, bar_x + bar_length + 2, mp_text, curses.A_BOLD)
+
+        # Дополнительно: уровень и опыт сверху справа
+        level = stats.get("уровень", 1)
+        exp = stats.get("опыт", 0)
+        exp_next = stats.get("опыт_до_следующего_уровня", 100)
+        level_text = f"Lvl {level} | Exp: {exp}/{exp_next}"
+        level_x = self.width - len(level_text) - 4
+        self._safe_addstr(1, level_x, level_text, curses.A_BOLD | curses.color_pair(2))
+
+    def _draw_inventory(self):
+        """Модальное окно инвентаря — блокирует основной цикл."""
+        # Размеры окна
+        inventory_height = self.height - 6
+        inventory_width = self.width - 6
+        start_y = (self.height - inventory_height) // 2
+        start_x = (self.width - inventory_width) // 2
+
+        # Создаём окно
+        inventory = curses.newwin(inventory_height, inventory_width, start_y, start_x)
+    
+        while True:  # Бесконечный цикл до выхода
+            inventory.clear()
+            inventory.box()
+
+            # Заголовок
+            title = "ИНВЕНТАРЬ"
+            inventory.addstr(1, (inventory_width - len(title)) // 2, title, curses.A_BOLD)
+
+            # Если персонажа нет
+            if not self.game.current_character:
+                inventory.addstr(3, 2, "Нет загруженного персонажа", curses.A_DIM)
+                inventory.refresh()
+                continue
+
+            # Данные персонажа
+            name = self.game.current_character["name"]
+            char_class = self.game.current_character["class"]
+            stats = self.game.current_character["stats"]
+
+            # Имя и класс
+            inventory.addstr(3, self.width - 42, f"Имя: {name} | Класс: {char_class}", curses.A_BOLD)
+            # Характеристики справа
+            stats_y = 6
+            stats_x = inventory_width // 2 + 2
+            stat_order = ["уровень",
+                          "опыт",
+                          "здоровье",
+                          "мана",
+                          "сила",
+                          "интеллект",
+                          "выносливость",
+                          "ловкость"]
+            for i, stat_name in enumerate(stat_order):
+                if stat_name in stats:
+                    value = stats[stat_name]
+                    display_name = stat_name.capitalize()
+                    # Для опыта добавляем прогресс
+                    if stat_name == "опыт":
+                        next_level = stats.get("опыт_до_следующего_уровня", 100)
+                        value = f"{value}/{next_level}"
+                    line = f"{display_name:<12}: {value:>4}"
+                    if stats_y + i < inventory_height - 2:
+                        inventory.addstr(stats_y + i, stats_x, line)
+
+            inventory.refresh()
+
+            # Ждём ввода внутри окна инвентаря
+            key = inventory.getch()
+
+            if key == 27:  # Esc — выход
+                break
 
     def draw(self):
         self.height, self.width = self.stdscr.getmaxyx()
